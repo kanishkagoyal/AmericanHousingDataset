@@ -1,0 +1,1318 @@
+
+---
+title: <span style="color:red"><center>**House For Sale** </center></span>
+author: <center>**Kanishka Goyal**</center>
+output: html_document
+---
+
+<style type = "text/css">
+
+body{
+  font-size: 10pt;
+}
+
+code.r{
+  font-size: 10pt;
+}
+
+pre{
+  font-size: 10pt;
+}
+
+</style>
+
+&nbsp;
+&nbsp;
+
+## Abstract
+
+The main objective of this project was to predict _**Sale Price**_ of individual residential property in **Ames, Iowa**. For the analysis and modeling purposes, the data set was taken from  [**Kaggle - Ames Housing Dataset**](https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data). 
+The objective here, was broken down into 8 smaller questions of interest, which were then transformed to data science problems. This involved time series analysis on Sale Price. It also involved , Uni-variate, Bi-variate and Multi-variable analysis on varied set of variables. Analysis was conducted on features, such as how neighborhood, lot size, no. of bedrooms etc. can affect the Sale price of a property. Visualization was performed by creating distribution, comparison, and regression plots. Additionally, Feature engineering was conducted to convert a few *Ordinal* variables to *factors*. Few variables were mutated to the data set as per requirement. After a detailed analysis, three models were built to predict the sale price. On evaluating these models, the model with the best fit was selected. Analysis showed that Overall Quality, Neighborhood and Living area happen to be the major factors in depicting the Sale Price of residential property in **Ames, Lowa**. The final model has an RMSE of **0.149**. New insights gained throughtout the project mentioned in the end of the report.  
+
+## Background
+
+_**Ames**_ is a small city in the state of *Iowa* in the *United States*. The data set used in this analysis was originally compiled by **Professor Dean De Cock** in **2011**. It contains observations on housing sales in Ames between the years **2006 and 2010** [1]. There are 81 different features describing each house’s size, quality, area, age, and other miscellaneous attributes. There is one more variable *SalePrice*, totaling the variable count to 82. The data set has a total of 2919 observations which has been split into Train and Test data set. A detailed description of each variable can be accessed through [**Ames data set decription**](https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data?select=data_description.txt)
+&nbsp;
+
+## Problem Identification
+
+<ul>
+<li> **Problem 1** - Analyze if age of the House has an impact on sale price across different types of foundation. </li>
+<li> **Problem 2** - Analyze whether Basement/ Garage has any effect on sale price. </li>
+<li> **Problem 3** - How has the Average Sale Price changed from year 2006 to 2010 across different neighborhoods?  </li>
+<li> **Problem 4** - Are quality/ condition features affecting sale price? </li>
+<li> **Problem 5** - Does the sale price fluctuate across seasons of the year?</li>
+<li> **Problem 6** - Analyze if Lot size, or various other area measurements make an impact on sale price.</li>
+<li> **Problem 7** - Analyze other key features to find what best predicts the sale price.</li>
+<li> **Problem 8** - How are Number of Sales distributed among neighborhoods/ Building type across time? </li>
+<li> **Problem 9** - Develop models to predict Sale Price based on the analysis performed in previous steps. </li>
+<li> **Problem 10** - Evaluate the models created and select the fit that best predicts the sales price. </li>
+</ul>
+
+```{r warning = FALSE, message = FALSE, echo = FALSE}
+
+#************************************ Setup ************************************
+
+# data files - data files located in the same folder as this Rmd file. 
+
+# Check and install the required packages---------------------------------------
+
+if(!("readr" %in% rownames(installed.packages()))){
+  install.packages("readr")
+}
+
+if(!("tidyverse" %in% rownames(installed.packages()))){
+  install.packages("tidyverse")
+}
+
+if(!("GGally" %in% rownames(installed.packages()))){
+  install.packages("GGally")
+}
+
+if(!("gridExtra" %in% rownames(installed.packages()))){
+  install.packages("gridExtra")
+}
+
+if(!("modelr" %in% rownames(installed.packages()))){
+  install.packages("modelr")
+}
+
+library(readr)     # Data import
+library(tidyverse) # Data wrangle and visualization
+library(ggplot2)   # Data Visualization
+library(GGally)    # Correlation and plotting  
+library(gridExtra) # Plot arrangement 
+library(Metrics)   # Data modeling and evaluation
+library(modelr)
+
+```
+
+## Data preprocessing
+
+Data pre-processing is a very important aspect of a data science project and accounts for almost half of the work in many cases. It helps to manage missing data, detect outliers, change variable names etc.. In data pre-processing the data is cleaned in a series of steps to make it easily and readily available for later stages of the project. 
+
+```{r echo TRUE}
+# Loading data sets into working directory--------------------------------------
+
+train_data <- read.csv("train.csv")
+test_data <- read.csv("test.csv")
+
+# Setting my standard theme-----------------------------------------------------
+
+my_theme <- theme(
+  panel.background = element_rect( fill = "ivory2" , color ="gray"),
+  plot.background = element_rect( color = "black"),
+  plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+  axis.title.x = element_text(size = 12, hjust = 0.5),
+  axis.title.y = element_text(size = 12, hjust = 0.5))
+```
+
+&nbsp;
+
+##### **1. Missing data management** -
+
+In the training data set, there are a total of **19** variables that have missing data. All these values need to be handled, either by imputing or by removing the missing values. In the **plot** shown below, you can see the variables with maximum number of NA values.
+
+```{r echo = FALSE, fig.align='center'}
+# Plotting the number of NA values for different variables----------------------
+
+# create a data frame of count of na values
+na_values_cols <- data.frame()
+
+for(i in 1:length(train_data)-1){
+  na_values_cols[i,1] <- names(train_data)[i]
+  na_values_cols[i,2] <- colSums(is.na(train_data[i]))
+}
+names(na_values_cols) <- c("Col_name", "N_nas")
+j<- 0
+for(i in na_values_cols$N_nas){
+  if(i>0){
+    j <- j+1
+  }
+}
+# plot Na values 
+na_values_cols %>% 
+  arrange(desc(N_nas)) %>% 
+  slice(1:20) %>% 
+  ggplot(aes(x = reorder(Col_name, -N_nas), y = N_nas)) +
+  geom_text(aes(y = N_nas, label = N_nas, vjust = -0.5)) +
+  geom_col(fill = "coral") +
+  labs(
+    x = "Variable names",
+    y = "No. of na Values",
+    title = "Highest No. of Na values variables"
+  ) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  my_theme
+
+```
+
+&nbsp;
+
+**a.** The first step is to remove the variables that are 100% empty.
+
+```{r echo = FALSE}
+# Remove variables if 100% empty------------------------------------------------
+
+# list storing the indexes of empty columns
+empty_cols <- numeric()
+
+# find the columns which are all empty and store indexes in empty_cols
+for(i in 2:length(train_data)){
+  if(colSums(is.na(train_data[i])) == nrow(train_data)){
+    empty_cols <- c(empty_cols,i)
+  }
+}
+
+# check and remove columns that are all empty
+if(length(empty_cols) > 0){
+  train_data <- train_data[,-(empty_cols)]
+  print("All the empty columns removed.")
+}else{
+  print("There are no columns that are all empty")
+}
+
+
+```
+
+&nbsp;
+
+**b.** On analysing the variable description, which can be found [**here**](https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data?select=data_description.txt), I found a different aspect of missing values in this data. It's true that, there are a lot of categorical variables with *NA* values, but in many of these variables, *NA* does not represent missing data, it rather represents that, that specific feature/ facility was missing in the house. For instance in variables like Basement, Fireplace, Garage, Pool, Fence, Alley etc., *NA* stand for the feature not available. So, for all these categorical variables where NA means missing facility, I replaced the *NA* with a character string *"None"*.
+
+```{r echo = TRUE}
+
+# Replacing NA with "None" for all those variables where NA stand for missing 
+# feature rather than missing information -------------------------------------- 
+
+na_correction <- c("BsmtExposure","BsmtFinType1", "BsmtFinType2", "Alley",
+                   "GarageType", "GarageFinish",  "Fence" ,  "MiscFeature",
+                   "PoolQC", "FireplaceQu", "GarageQual" , "GarageCond", 
+                   "BsmtQual" , "BsmtCond")
+
+for(i in 1:length(na_correction)){
+  for(j in 1:nrow(train_data)){
+    if(is.na(train_data[j,na_correction[i]])){
+      train_data[j,na_correction[i]] <- "None"
+    }
+  }
+}
+```
+
+&nbsp;
+
+**c.** For the other variables, where *NA*, actually meant missing information, Na's were managed as follows-
+
+
+1. Lot Frontage - Replaced NA values with median by grouping on *type of Street*, as Lot Frontage is the linear feet of the street connected to property. 
+
+2. MasVnrType/Area and Electrical- Both these variables have less than 0.5% of Na's. Removed the rows with Na's for these two variables as it will not affect our analysis.
+
+```{r echo = TRUE}
+
+# Lot Frontage is Linear feet of street connected to property
+# Replace NA values with median grouped on type of street
+
+train_data <- train_data %>%
+  group_by(Street) %>%
+  mutate( LotFrontage = ifelse(is.na(LotFrontage), 
+                               median(LotFrontage, na.rm = TRUE),
+                               LotFrontage))
+
+```
+
+```{r echo = FALSE}
+
+# Omitting rows for the columns where less than 0.01% data is missing-----------
+
+
+# Masonry Veneer and electrical 
+
+empty_var <- numeric()
+
+for(i in 1:nrow(train_data)){
+  if(is.na(train_data$MasVnrType[i])){
+    empty_var <- c(empty_var,i)
+  }
+}
+
+for(i in 1:nrow(train_data)){
+  if(is.na(train_data$Electrical[i])){
+    empty_var <- c(empty_var,i)
+  }
+}
+
+train_data <- train_data[-(empty_var),]
+
+```
+
+&nbsp;
+
+##### **2. Wrangling Quality variables** -
+
+There are many categorical variables in data who has their values in the form of ranks ranging from Poor -> Excellent. 
+
+1. Po	Poor
+2. Fa	Fair
+3. TA	Average/Typical
+4. Gd	Good
+5. Ex	Excellent
+
+For an effective analysis of these variables, I changed their values from Character (Po, Fa, TA, Gd, Ex) to Numeric (1, 2, 3, 4, 5). By doing this, these variables can be used to find correlations or create scatter plot matrices with sale price variable. 
+
+```{r echo = TRUE}
+
+# Changing Quality & Condition variables----------------------------------------
+
+var_list <- c(
+  "ExterQual", "ExterCond" , "BsmtQual" , "KitchenQual" ,
+  "FireplaceQu" , "GarageQual" , "GarageCond"
+)
+
+var_index_list <- c(
+  28,29,31,54,58,64,65
+)
+
+for( i in var_index_list){
+  for(j in 1:nrow(train_data)){
+      if(train_data[j,i] == "Ex"){ 
+        train_data[j,i] <- "5" }
+      else if(train_data[j,i] == "Gd"){ 
+        train_data[j,i] <- "4" }
+      else if(train_data[j,i] == "TA"){ 
+        train_data[j,i] <- "3" }
+      else if(train_data[j,i] == "Fa"){ 
+        train_data[j,i] <- "2" }
+      else if(train_data[j,i] == "Po"){ 
+        train_data[j,i] <- "1" }
+      else{ 
+      train_data[j,i] <- "0" }
+  }
+}
+
+for(i in var_index_list){
+  train_data[[i]]  <- as.numeric(train_data[[i]]) 
+}
+
+```
+
+&nbsp;
+
+##### 3. **Sale Price/ log_Sale price** -
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.align='center'}
+
+# If price needs to be logged
+
+train_data %>%
+  ggplot(aes(x = SalePrice, fill = ..count..)) +
+  geom_histogram() +
+  labs(
+    x = "Price",
+    y = "Frequency",
+    title = "Histogram for Sale Price"
+  ) +
+  my_theme
+
+```
+
+On plotting a histogram of Sale Price, it was seen that, it has a big stretch in the right and is extremely skewed with few outliers. So, to improve the target variable, mutated a new variable log_price, which takes the log of e for all the sale price values. 
+
+```{r echo = TRUE}
+
+train_data <- train_data %>%
+  mutate(log_price = log(SalePrice))
+
+```
+
+## Exploratory data analysis
+
+EDA provides data visualization methodologies which help to understand and summarize a data set without prior assumptions. It is crucial for gaining insight into data. Analysis Problems identified at the start of the project will be discussed here- 
+
+&nbsp;
+
+#### **Problem 1 - Analyze if age of the House has an impact on sales price across different types of foundation.**
+
+&nbsp;
+
+##### **Sale Price vs. Age across Foundations -  **
+
+```{r echo = TRUE, fig.align = 'center', warning=FALSE,message=FALSE}
+
+train_data$Age <- train_data$YrSold - train_data$YearBuilt
+
+train_data %>% 
+  ggplot(aes(x = Age, y = log_price, color = Foundation)) +
+  geom_point(alpha = 0.7) +
+  labs(
+    x = "Age (years)",
+    y = "Sale Price (Log) ",
+    title = "Sale price vs. Age across foundations"
+  ) +
+  my_theme
+
+```
+
+The plot shown above depicts that Sale Price and age of the house hold a weak -> moderate, negative relation. As, the age of the house increases, the sale price decreases.There is a possibility of a few bi-variate outliers. Additionally, there seems to be a strong relationship between age and foundation of the house which shows that new age houses have Poured Concrete Foundations, whereas they had Cinder Block or Wood foundations in the old times. 
+
+&nbsp;
+
+#### **Problem 2 - Analyze whether Basement/ Garage has any effect on sale price.**
+
+&nbsp;
+
+##### **1. Analyze if Basement has an effect-**
+
+```{r echo = TRUE, results='hide', fig.show='hide'}
+
+# Correlation plot on numeric variables related to basement
+
+ggcorr(train_data[,c(31,35,37,38,39,82)], label = T, name = "rho")
+
+# Total sq ft. area of basement and Basement quality seems to impact 
+# sale price.
+
+# Plotting Total Sq. ft. area of basement 
+
+train_data %>% 
+  ggplot(aes(x = TotalBsmtSF, y = log_price)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth() +
+  labs(
+    x = " Total Basement area (sq. ft.)",
+    y = " Sale Price (Log)",
+    title = "Sale price vs Basement area"
+  ) +
+  my_theme
+
+# There is one extreme outlier in the data which is tampering the trend line.
+# Also, the variable which do not have a basement hinder in the analysis. 
+
+# Removing outlier
+
+train_data <- train_data[-(which.max(train_data$TotalBsmtSF)),]
+
+```
+
+The Correlation heat map depicted that, out of all the numerical variables related to Basement, Total sq. ft. area and Basement Quality has moderate correlation with Log Price. 
+
+&nbsp;
+
+##### **1. Sale Price vs. Total Basement area **
+
+```{r echo = TRUE, warning = FALSE, message = FALSE, fig.align='center'}
+# Plotting again without considering the data that does not have a basement
+
+train_data %>% 
+  filter(TotalBsmtSF > 0) %>% 
+  ggplot(aes(x = TotalBsmtSF, y = log_price)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth() +
+  labs(
+    x = " Total Basement area (sq. ft.)",
+    y = " Sale Price (Log)",
+    title = "Sale price vs Basement area"
+  ) +
+  my_theme
+
+```
+
+The plot above depicts that there is a moderate relation between Basement area and Sale price. The relation is near linear. Even after removing the extreme **outliers**, the remaining ones tend to bend the curve line towards itself.  
+
+&nbsp;
+
+##### **2. Sale Price vs. Basement Quality**
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.align='center'}
+# Checking basement Quality in relation to Price
+train_data %>% 
+  filter(BsmtQual > 0, BsmtExposure!= "None") %>% 
+  group_by(BsmtQual, BsmtExposure) %>% 
+  summarize(Median_price = median(SalePrice)) %>% 
+  ggplot(aes(x = BsmtQual, y = Median_price, fill = BsmtExposure)) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Basement Quality",
+    y = " Average Sale price",
+    title = " Average Sale price vs Basement Quality"
+  ) +
+  my_theme
+
+```
+
+The stack Bar plot above depicts that there is a linear relation between Basement Quality and Sale price. The relation is moderate. It also, shows that there is no major relationship between Basement Expoure and Basment Quality as there is equal distribution among all the bars.  
+
+&nbsp;
+
+##### 3. **Sale Price vs. Basement Exposure**
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.align='center'}
+# Sale price/ Log_price vs Basement Exposure  ------------------
+
+train_data %>% 
+  ggplot(aes(x = BsmtExposure, y = log_price, fill = BsmtExposure)) +
+  geom_boxplot() +
+  stat_summary(fun = mean,
+               geom = "point",
+               shape = 20,
+               size = 5,
+               color = "white",
+               fill ="blue") +
+  scale_x_discrete(name = " Bsmt Exposure",
+                    labels = c("Average","Good","Minimum","No","None")) +
+  scale_fill_manual(name = " Bsmt Exposure",
+                   labels = c("Average","Good","Minimum","No","None"),
+                   values = c("skyblue","olivedrab3", "tan1", "yellow2","plum")) +
+  labs(
+    x = "Basement Exposure",
+    y = "Sale price",
+    title = " Sale price vs. Basement Exposure"
+  ) +
+  my_theme
+
+```
+
+There is a relation between Sale Price and Basement Exposure, as the Exposure increases, Sale price also increases. But, the relation is not very strong as the boxes are not very far away from one another.  
+
+&nbsp;
+
+##### **2. Analyze if Garage has an effect-**
+
+```{r echo = TRUE, warning=FALSE, message=FALSE, results='hide', fig.show='hide'}
+
+# Correlation plot on numeric variables related to GARAGE-----------------------
+
+ggcorr(train_data[,c(60,62,63,64,65,82)], label = T, name = "rho")
+
+# Garage area, Garage Cars has some good correlation with sale price.
+# Garage year built has some relation too with a correlation of 0.5 
+
+```
+
+&nbsp;
+
+##### **1. Sale price vs. Garage Area in relation to Garage Age**
+
+```{r echo = TRUE, fig.align='center', warning=FALSE, message=FALSE}
+# Plot Sale price vs Garage Area plotted across age of garage-------------------
+
+train_data %>% 
+  filter( GarageArea > 0 , GarageArea < 1050) %>% 
+  mutate(Garage_age = YrSold - GarageYrBlt) %>% 
+  ggplot(aes(x = GarageArea, y = log_price, color = Garage_age)) +
+  geom_jitter() +
+  scale_color_gradient(low ="coral", high = "brown") +
+  labs(
+    x = "Garage area(sq. ft.)",
+    y = "Sale price (Log)",
+    title = "Sale price vs Garage area plotted across age of the garage"
+  ) +
+  my_theme
+
+```
+
+Similar, negative trend between Garage Age and Price can be observed. Additionally, a moderate relation between Garage Area and Sale price. 
+
+&nbsp;
+
+##### **2. Sale price vs. Garage Type**
+
+```{r echo = FALSE, fig.align='center', warning=FALSE,message=FALSE}
+# Impact of garage type on Sale Price-
+
+train_data %>% 
+  ggplot(aes(x = GarageType, y = log_price, fill = GarageType)) +
+  geom_violin() +
+  stat_summary(fun = mean,
+               geom = "point",
+               shape = 20,
+               size = 5,
+               color = "white",
+               fill ="black") +
+  labs(x = " Garage Type",
+       y = "Sale Price",
+       title = "Sale Price vs Garage Type") +
+  my_theme
+
+```
+
+The type of Garage does not seem to hold any big impact on Sale price as there is a very less variability and a huge overlap between all the categories. 
+
+```{r echo = FALSE, results='hide', fig.show='hide',warning=FALSE,message=FALSE}
+# Impact of Garage Finish on Sale Price -
+
+train_data %>% 
+  filter(GarageFinish != "None") %>% 
+  ggplot(aes(x = GarageFinish, y = log_price, fill = GarageFinish)) +
+  geom_boxplot() + 
+  stat_summary(fun = mean,
+               geom = "point",
+               shape = 20,
+               size = 5,
+               color = "white",
+               fill ="blue") +
+  scale_x_discrete(name = "Garage Finish",
+                   labels = c("Finished","Rough Finish","Unfinished")) +
+  scale_fill_manual(name = " Garage Finish",
+                    labels = c("Finished","Rough Finished","Unfinished"),
+                    values = c("skyblue","olivedrab3", "tan1")) +
+  labs(
+    x = "Garage Finish",
+    y = "Sale price (Log) ",
+    title = " Sale price vs. Garage Finish"
+  ) +
+  my_theme
+
+```
+
+&nbsp;
+
+#### **Problem 3 - How has the Average Sale Price changed from year 2006 to 2010 across different neighborhoods?**
+
+```{r echo = TRUE, warning=FALSE, message=FALSE, fig.align='center'}
+
+train_data %>% 
+  group_by(YrSold, Neighborhood) %>% 
+  summarize(Average_price = median(log_price)) %>% 
+  ggplot(aes(x = YrSold, y = Average_price, color = Average_price)) +
+  geom_point()  +
+  geom_line() +
+  scale_color_gradient(low ="coral", high = "black") +
+  facet_wrap(~ Neighborhood) +
+  labs(
+    x = "Year Sold",
+    y = " Average Sale price (Log)",
+    title = "Average Sale price vs Year Sold across different Locations"
+  ) +
+  theme(axis.text.x = element_text(angle = 90),
+        plot.background = element_rect( color = "black"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        axis.title.x = element_text(size = 12, hjust = 0.5),
+        axis.title.y = element_text(size = 12, hjust = 0.5))
+
+
+```
+
+As in the plot shown above, most of the neighborhoods did not show any major hike in Sale price throughout all years but some surubs such as *Crawfor*, *ClearCr* showed an increase in 2010. There are a few neighborhoods showing changes every year. This plot also shows that a few neighborhoods such as *NoRidge* , *NridgeHt*, *StoneBr* has huge Sale prices on average as compared to other neighborhoods. 
+
+&nbsp;
+
+#### **Problem 4 - How are quality/ condition features effecting sale price?**
+
+```{r echo = FALSE, results='hide', warning=FALSE, message=FALSE, fig.show='hide'}
+# Correlation plot for Quality/ Condition variables
+
+ggcorr(train_data[,c(18,19,28,29,54,58,82)], label = T, name = "rho")
+
+# Here, Overall Quality, Exterior Quality, Kitchen Quality, Fireplace Quality  
+# have a reasonable correlation with Sale Price
+
+```
+
+
+On creating a *correlation plot* between Quality variables and Sale price, it was found that *Overall Quality*, *Exterior Quality*, *Kitchen Quality*, *Fireplace Quality* have a reasonable correlation with Sale Price. 
+ 
+
+```{r echo = FALSE, results='hide', warning=FALSE, message=FALSE , fig.show='hide'}
+# Analyzing Overall Quality in relation to Sale price
+
+a <- train_data %>% 
+  group_by(OverallQual) %>% 
+  summarize( Average_price = median(SalePrice)) %>% 
+  ggplot(aes(x = OverallQual, y = Average_price, fill = OverallQual)) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Overall Quality",
+    y = " Average Price",
+    title = "Overall Quality"
+  ) +
+  my_theme
+
+```
+
+```{r echo = FALSE, results='hide', warning=FALSE, message=FALSE, fig.show='hide'}
+
+# Analyzing Exterior Quality in relation to Sale price
+
+b <- train_data %>% 
+  group_by(ExterQual) %>% 
+  summarize( Average_price = median(SalePrice)) %>% 
+  ggplot(aes(x = ExterQual, y = Average_price, fill = ExterQual)) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Exterior material Quality",
+    y = " Average Price",
+    title = "Exterior material Quality"
+  ) +
+  my_theme
+
+```
+
+```{r echo = FALSE, results='hide', warning=FALSE, message=FALSE , fig.show='hide'}
+
+# Analyzing Kitchen Quality in relation to Sale price---------------------------
+
+c <- train_data %>% 
+  group_by(KitchenQual) %>% 
+  summarize( Average_price = median(SalePrice)) %>% 
+  ggplot(aes(x = KitchenQual, y = Average_price, fill = KitchenQual)) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Kitchen Quality",
+    y = " Average Price",
+    title = "Kitchen Quality"
+  ) +
+  my_theme
+
+```
+
+```{r echo = FALSE, results='hide', warning=FALSE, message=FALSE, fig.show='hide'}
+
+# Analyzing Fireplace Quality in relation to Sale price-------------------------
+
+d <- train_data %>% 
+  filter(FireplaceQu > 0) %>% 
+  group_by(FireplaceQu) %>% 
+  summarize( Average_price = median(SalePrice)) %>% 
+  ggplot(aes(x = FireplaceQu, y = Average_price, fill = FireplaceQu)) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Fireplace Quality",
+    y = " Average Price",
+    title = "Fireplace Quality"
+  ) +
+  my_theme
+
+```
+
+&nbsp;
+
+##### **Plot of all the four major qualities impacting Sale Price - **
+
+```{r echo = FALSE, warning=FALSE, message=FALSE , fig.align='center'}
+
+# Plotting Quality variables on single screen-----------------------------------
+
+grid.arrange(a,b,c,d)
+
+```
+
+The plot here clearly depicts that Quality variables make a huge impact on Sale Price. In all the four quality variables shown above there is a linear-> exponential increase in Sale price of the property. I have made the plots only for the data that has that facility. The data which lacked that particular facility was omitted while plotting. 
+
+&nbsp;
+
+#### **Problem 5 - Does the sale price fluctuate across seasons of the year?**
+
+To analyze, if season has any impact on No. of sales in Ames. Mutated a Season_sold variable that takes data from Month Sold and assigns the month accordingly. In Ames, Iowa Summer exists from June to August, Autumn from September to November, Winter from December to February, and Spring from the month of March to May.[2]
+
+&nbsp;
+
+##### **Sale price vs Season from 2006 - 2010.**
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.align='center'}
+
+# Variable creation for analyzing seasonal trend--------------------------------
+
+train_data$seasonSold <- ifelse(
+  train_data$MoSold == 12 | train_data$MoSold == 1 | train_data$MoSold == 2, "Winter", ifelse(
+    train_data$MoSold == 3 | train_data$MoSold == 4 | train_data$MoSold == 5, "Spring", ifelse(
+      train_data$MoSold == 6 | train_data$MoSold == 7 | train_data$MoSold == 8, "Summer", ifelse(
+        train_data$MoSold == 9 | train_data$MoSold == 10 | train_data$MoSold == 11, "Autumn", NA
+      ) 
+    )
+  ))
+
+# Plotting
+
+train_data %>% 
+  group_by(seasonSold, YrSold) %>% 
+  summarize(Sale_freq = n()) %>% 
+  ggplot(aes(x = YrSold, y = Sale_freq, fill = seasonSold)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(YrSold,Sale_freq, label = Sale_freq), 
+            vjust = -0.5 ,
+            position = position_dodge(width = 1)) +
+  labs(
+    x = " Year Sold",
+    y = "No.of Sales",
+    title = "No. of Sales across different seasons from 2006-2010"
+  ) +
+  my_theme
+
+```
+
+The plot clearly depicts a relation between Seasons of the Year and Sale price. Summers show the maximum number of sales and there are least number of Sales in Winters. The ascending order of number of Sales is Winter < Autumn < Spring < Summer. In the year 2010, sales are low and it is not showing any information about Autumn sales. This shows that, the data is missing for 2010 and we have only data for a few months when it comes to 2010. Studies also reveal that for most of the locations in the world, Summers have proven to be the biggest market in real estate. 
+
+&nbsp;
+
+#### **Problem 6 - Analyze if Lot size, or various other area measurements make an impact on sale price.**
+
+For analyzing the correlation between numeric variables, such as Area, Lot size and other area measurements, the variables of interest have been divided into two sets and both include Log Price.  
+
+```{r echo = FALSE, warning=FALSE, message=FALSE, results='hide', fig.show='hide'}
+# All the area variables are divided into two sets of variables and 
+# two Correlation plots created--------------------------------------------
+
+# 1st set
+ggcorr(train_data[,c(27,4,5,47,44,45,46,82)], label = T, name = "rho") +
+  ggtitle("Scatter Plot Matrix for Area's vs Sale price") +
+  my_theme
+
+# 2nd set
+ggcorr(train_data[,c(67,68,69,70,71,72,82)], label = T, name = "rho")+
+  ggtitle("Scatter Plot Matrix for Area's vs Sale price") +
+  my_theme
+
+```
+
+On analyzing the correlation plots, it was found that Above ground Living area and area of the first floor showed moderate relation with Sale price.
+
+&nbsp;
+
+##### **Scatter Plot matrix for Living and First floor area and Sale price- **
+
+```{r echo = FALSE, fig.align='center', warning=FALSE, message=FALSE}
+
+# Created scatter plot matrix for those variable that showed moderate
+# relation with Sale price------------------------------------------------------
+
+ggpairs(train_data, columns = c(44,47,82)) +
+  ggtitle("Scatter Plot Matrix for Area's vs Sale price") +
+  my_theme
+
+```
+
+&nbsp;
+
+##### **Sale Price vs. living area and Total number of rooms - **
+
+```{r echo = FALSE, fig.align='center',warning=FALSE, message=FALSE}
+
+# Living area has a moderate relationship with Sale price-----------------------
+
+# Sale Price vs. Living area vs. -----------------------------------------------
+
+train_data %>% 
+  ggplot(aes(x = GrLivArea, y = log_price, color = as.factor(TotRmsAbvGrd))) +
+  geom_jitter() +
+  scale_color_discrete( name = "No. of rooms") +
+  labs(
+    x = "Above ground living area (sq. ft.)",
+    y = "Sale Price (Log)",
+    title = "Sale Price vs. Living area and number of rooms"
+  ) +
+  my_theme
+
+```
+
+The plot above shows that there is a moderate - > strong correlation between Sale price and Living area. It's a near linear trend with a few outliers. There is also a good relation between Living area and No. of rooms, as the houses with large Living area have more number of rooms with a few exceptions. A few *Value-outliers* can be seen in the plot. 
+
+&nbsp;
+
+#### **Problem 7 - Analyze other key features to find what best predicts the sale price.**
+
+```{r echo = FALSE, warning=FALSE, message=FALSE, results='hide', fig.show='hide'}
+
+# Correlation plot for variables like No. of bedrooms/Kitchen/ Bathroom 
+# with Sale price
+
+ggcorr(train_data[,c(48,49,50,51,52,53,55,57,82)], label = T, name = "rho")
+
+# No. of full bathrooms and First floor area has moderate correlation
+
+
+```
+
+```{r echo = FALSE, fig.show='hide',warning=FALSE, message=FALSE}
+
+# Sale Price vs. No. of full Bathrooms 
+
+train_data %>% 
+  filter(FullBath > 0) %>% 
+  ggplot(aes(x = factor(FullBath), y = log_price, fill = factor(FullBath))) +
+  geom_boxplot() +
+  stat_summary(fun = mean,
+               geom = "point",
+               shape = 20,
+               size = 5,
+               color = "white",
+               fill ="blue")+
+  scale_color_discrete(name = "No. of bathrooms") +
+  labs(
+    x = "Number of Full Bathrooms",
+    y = "Sale price (Log)",
+    title = "Sale price vs. Full Bathrooms"
+  ) +
+  my_theme
+
+```
+
+```{r echo = FALSE, fig.show='hide',warning=FALSE, message=FALSE}
+
+# Sale price vs MS Zoning
+
+train_data %>% 
+  ggplot(aes(x = MSZoning, y = log_price, fill = MSZoning)) +
+  geom_boxplot() +
+  stat_summary(fun = mean,
+               geom = "point",
+               shape = 20,
+               size = 5,
+               color = "white",
+               fill ="blue")+
+  scale_color_discrete(name = "MS Zoning") +
+  labs(
+    x = "MS Zoning",
+    y = "Sale price (Log)",
+    title = "Sale price vs. MS Zoning"
+  ) +
+  my_theme
+
+```
+
+```{r echo = FALSE, fig.show='hide',warning=FALSE, message=FALSE}
+
+
+# Sale Price vs Neighborhood
+
+# 1. Box plot
+
+train_data %>% 
+  ggplot(aes(x = Neighborhood, y = log_price, fill = Neighborhood)) +
+  geom_boxplot() +
+  stat_summary(fun = mean,
+               geom = "point",
+               shape = 20,
+               size = 4,
+               color = "white",
+               fill ="blue")+
+  scale_color_discrete(name = "Neighborhood") +
+  labs(
+    x = "Neighborhood",
+    y = "Sale price (Log)",
+    title = "Sale price vs. Neighborhood"
+  ) +
+  my_theme +
+  coord_flip()
+
+```
+
+&nbsp;
+
+##### **Sale price vs. Neighborhood - **
+
+```{r echo = FALSE, fig.align='center',warning=FALSE, message=FALSE}
+
+# Bar Plot
+
+train_data %>% 
+  group_by(Neighborhood) %>% 
+  summarize(Average_price = median(SalePrice)) %>% 
+  ggplot(aes(x = Neighborhood, y = Average_price, fill = Neighborhood)) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Neighborhood",
+    y = " Average Price",
+    title = "Average price vs. Neighborhood"
+  ) +
+  my_theme +
+  coord_flip()
+
+```
+
+High average price for neighborhoods like NridgHt, NoRidge, StoneBr. The variation shows that Neighborhood is a good factor to depict Sale Price.
+
+&nbsp;
+
+##### **Sale price vs. Foundation - **
+
+```{r echo = FALSE, fig.align='center',warning=FALSE, message=FALSE}
+
+
+# Sale Price vs Foundation------------------------------------------------------
+
+train_data %>% 
+  ggplot(aes(x = Foundation, y = log_price, fill = Foundation)) +
+  geom_boxplot() +
+  stat_summary(fun = mean,
+               geom = "point",
+               shape = 20,
+               size = 4,
+               color = "white",
+               fill ="blue")+
+  geom_jitter(alpha = 0.5, size = 0.6) +
+  scale_color_discrete(name = "Foundation") +
+  labs(
+    x = "Foundation",
+    y = "Sale price (Log)",
+    title = "Sale price vs. Foundation"
+  ) +
+  my_theme 
+
+```
+
+The plot here depicts that the most popular foundation among houses has been *CBlock* which is *Cinder Block*. The other two common are Brick and Poured concrete. Foundation does not happen to have a huge impact on Sale price but it shows some effect as Foundation is positively linearly related to Age, so Foundation may effect Sale Price similar to how Age affected. 
+
+&nbsp;
+
+#### **Problem 8 - How are Number of Sales distributed among neighborhoods/ Building type across time? **
+
+&nbsp;
+
+##### **No. of Sales vs. Neighborhood across time ** - 
+
+```{r echo = TRUE, fig.align='center',warning=FALSE, message=FALSE}
+# Among Neighbors
+
+train_data %>% 
+  filter(YrSold != 2010) %>% 
+  group_by(YrSold, Neighborhood) %>% 
+  summarize(N_Sale = n()) %>% 
+  ggplot(aes(x = YrSold, y = N_Sale, color = N_Sale)) +
+  geom_point()  +
+  geom_line() +
+  scale_color_gradient(low ="coral", high = "black") +
+  facet_wrap(~ Neighborhood) +
+  labs(
+    x = "Year Sold",
+    y = " Number of Sales",
+    title = "No. of Sales vs. Neighborhood across time"
+  ) +
+  theme(axis.text.x = element_text(angle = 90),
+        plot.background = element_rect( color = "black"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        axis.title.x = element_text(size = 12, hjust = 0.5),
+        axis.title.y = element_text(size = 12, hjust = 0.5))
+
+```
+
+This graph depicts that there are high number of Sales in *NAmes* and *CollgCr* and there has been an increase in sales in *Edwards*, *CollgCr*, *NWAmes*, *NridgHt* with time. For most of the other neighborhoods the average No. of sales stood constant. Still, the data is incomplete for year 2010, there would have been more meaningful insights if there was complete data for year 2010. 
+
+&nbsp;
+
+##### **No. of sales vs. Building Type across time -**
+
+```{r echo = FALSE, fig.align='center',warning=FALSE, message=FALSE}
+
+# Among Building type
+
+train_data %>% 
+  group_by(YrSold, BldgType) %>% 
+  summarize(N_Sale = n()) %>% 
+  ggplot(aes(x = YrSold, y = N_Sale, fill = YrSold)) +
+  geom_bar(stat = "identity")  +
+  scale_fill_gradient(low ="coral", high = "black") +
+  facet_wrap(~ BldgType) +
+  labs(
+    x = "Year Sold",
+    y = " Number of Sales",
+    title = "No. of sales vs. Building Type across time"
+  ) +
+  theme(axis.text.x = element_text(angle = 90),
+        plot.background = element_rect( color = "black"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        axis.title.x = element_text(size = 12, hjust = 0.5),
+        axis.title.y = element_text(size = 12, hjust = 0.5))
+
+```
+
+This graph depicts that most of the sales in all these years happened in Single Family detached apartments. The other building types show very less sale as compared to this one. The year 2010 bar is low because the data is incomplete for 2010. 
+
+## Further pre-processing
+
+After a detailed analysis using EDA, we discover a few changes that need to be done, to prepare for modeling. For instance, Variable creation, Feature Engineering, cleaning test data etc. After performing EDA and visualizing so many plots, it was observed that out of all the variables whether original/ created, the following 15 features made an impact on Sale Price and Number of Sales. 
+
+```{r echo = FALSE, warning=FALSE, message=FALSE, results='hide'}
+
+# Replacing NA with "None" for all those variables where NA stand for missing 
+# feature rather than missing information -------------------------------------- 
+
+na_correction <- c("BsmtExposure", "GarageFinish", "FireplaceQu", 
+                   "GarageQual" , "BsmtQual" )
+
+for(i in 1:length(na_correction)){
+  for(j in 1:nrow(test_data)){
+    if(is.na(test_data[j,na_correction[i]])){
+      test_data[j,na_correction[i]] <- "None"
+    }
+  }
+}
+
+# Omitting rows for the columns where less than 0.01% data is missing-----------
+
+empty_1 <- numeric()
+
+for(i in 1:nrow(test_data)){
+  if(is.na(test_data$MSZoning[i])){
+    empty_1 <- c(empty_1,i)
+  }
+}
+
+for(i in 1:nrow(test_data)){
+  if(is.na(test_data$GarageArea[i])){
+    empty_1 <- c(empty_1,i)
+  }
+}
+
+for(i in 1:nrow(test_data)){
+  if(is.na(test_data$KitchenQual[i])){
+    empty_1 <- c(empty_1,i)
+  }
+}
+
+for(i in 1:nrow(test_data)){
+  if(is.na(test_data$TotalBsmtSF[i])){
+    empty_1 <- c(empty_1,i)
+  }
+}
+
+test_data <- test_data[-(empty_1),]
+
+# Changing Quality & Condition variables----------------------------------------
+
+var_index_list <- c(
+  28,31,54,58
+)
+
+for( i in var_index_list){
+  for(j in 1:nrow(test_data)){
+    if(test_data[j,i] == "Ex"){ 
+      test_data[j,i] <- "5" }
+    else if(test_data[j,i] == "Gd"){ 
+      test_data[j,i] <- "4" }
+    else if(test_data[j,i] == "TA"){ 
+      test_data[j,i] <- "3" }
+    else if(test_data[j,i] == "Fa"){ 
+      test_data[j,i] <- "2" }
+    else if(test_data[j,i] == "Po"){ 
+      test_data[j,i] <- "1" }
+    else{ 
+      test_data[j,i] <- "0" }
+  }
+}
+
+for(i in var_index_list){
+  test_data[[i]]  <- as.numeric(test_data[[i]]) 
+}
+
+# Log price  and Age -----------------------------------------------------------
+
+test_data <- test_data %>%
+  mutate(log_price = log(SalePrice),
+         Age = YrSold - YearBuilt) %>% 
+  filter( Age >= 0)
+
+```
+
+```{r echo = TRUE}
+
+# Processed test and train data ------------------------------------------------
+
+# Removing variables that are no longer required--------------------------------
+
+new_train_data <- train_data[, c("Age", "TotalBsmtSF","BsmtQual", "BsmtExposure",
+                                 "GarageArea", "GarageFinish", "OverallQual", "ExterQual",
+                                 "KitchenQual", "FireplaceQu", "GrLivArea", "FullBath",
+                                 "MSZoning", "Neighborhood" , "Foundation", "log_price", 
+                                 "SalePrice")]
+
+new_test_data <- test_data[, c("Age", "TotalBsmtSF","BsmtQual", "BsmtExposure",
+                               "GarageArea", "GarageFinish", "OverallQual", "ExterQual",
+                               "KitchenQual", "FireplaceQu", "GrLivArea", "FullBath",
+                               "MSZoning", "Neighborhood" , "Foundation", "log_price", 
+                               "SalePrice")]
+
+```
+
+## Modelling
+
+Data modeling is essential for prediction of target variable. In modeling, we create a model based on all the variables that have been selected by EDA and pre-processing and that model helps to make further predictions in the data. There are various different modeling algorithms and the one that is implemented in this project is a Linear model. Linear model excepts the target variable to be normally distributed and as the Sale Price data was highly right skewed, we will be using the Log(Sale Price) as to lower down the skew impact. 
+
+&nbsp;
+
+#### **Problem 9 - Develop models to predict Sale Price based on the analysis performed in previous steps.**
+
+Three models have have been build by combining various key features, *model_1*,  *model_2*,  *model_3*. The higher the Mean R squared value, the stronger is our model. The models and their summaries are as follows - 
+
+&nbsp;
+
+##### **Model 1 - Model 1 focuses to predict the Log Price of the variables using Quality variables and age of House.**
+
+In model no. 1, R square happens to be **0.7532** which means that **75.34%** of the Sale Price values can be explained by these Quality variables and age of the house. 
+
+```{r echo = TRUE, warning=FALSE, results='hide'}
+
+# Model 1- Model build on the basis of Quality variables and Age----------------
+
+model_1 <- lm(log_price ~ OverallQual + BsmtQual + ExterQual + 
+                KitchenQual + FireplaceQu + Age + BsmtExposure,
+         new_train_data)
+
+summary(model_1)
+
+```
+
+&nbsp;
+
+##### **Model 2 - Model 2 focuses to predict the Log Price of the variables using area variables/ No. of rooms.**
+
+In model no. 2, R square happens to be **0.7313** which means that **73.13%** of the Sale Price values can be explained by these area and size variables. 
+
+
+```{r echo = TRUE, results='hide'}
+
+# Model 2- Model build on top of Size and Area variables------------------------
+
+model_2 <- lm(log_price ~ TotalBsmtSF + GarageArea + GrLivArea + FullBath ,
+              new_train_data)
+
+summary(model_2)
+
+
+```
+
+&nbsp;
+
+##### **Model 3 - Model 3 focuses to predict the Log Price on top of the variables with high Correlation values.**
+
+In model no. 3, R square is a high **0.8638** which means that **86.38 %** of the Sale Price values can be explained by the combination of *OverallQual* , *TotalBsmtSF* , *Age* , *Neighborhood* , *GrLivArea* , *GarageFinish* , *Foundation*. 
+
+```{r echo = TRUE}
+
+# Model 3- Model build on top of variables with high Correlation values---------
+
+model_3 <- lm(log_price ~ OverallQual + TotalBsmtSF + Age + 
+                Neighborhood + GrLivArea + GarageFinish + Foundation,
+              new_train_data)
+
+summary(model_3)
+
+```
+
+## Evaluation
+
+Evaluation phase helps to select the best fit for our data. It involves re-modeling again and again to build an efficient model for predictions. In evaluation, the model is tested against RMSE (Root mean squared error) metric and using test data set. Following are the RMSE for three models in this project. 
+
+&nbsp;
+
+#### **Problem 10 - Evaluate the models created and select the fit that best predicts the sales price.**
+
+```{r echo = TRUE}
+
+# Evaluation model 1 -----------------------------------------------------------
+
+rmse(model_1, new_test_data)
+```
+
+&nbsp;
+
+```{r echo = TRUE}
+# Evaluation model 2 -----------------------------------------------------------
+
+rmse(model_2, new_test_data)
+
+```
+
+&nbsp;
+
+```{r echo = TRUE}
+# Evaluation model 3 -----------------------------------------------------------
+
+rmse(model_3, new_test_data)
+
+```
+
+&nbsp;
+
+##### **Analysis** -  
+
+It shows that **Model 3** is the best fit, as it has an RMSE of **0.149** which is least out of 3, and least the mean squared error, better is the fit of the equation. The predictors for this model are *OverallQual* , *TotalBsmtSF* , *Age* , *Neighborhood* , *GrLivArea* , *GarageFinish* , *Foundation*.
+
+&nbsp;
+
+#### **Residual Plot for Model 3 with a cut off value of 0.75**
+
+```{r echo = FALSE}
+# Model 3 is best fit, with a RMSE value of *0.147*
+# Residual plot for model 3
+
+model_pred <- predict(model_3, newdata = new_test_data)
+
+model_data <- new_test_data %>% 
+  mutate( y = log_price ,
+          yBar = model_pred,
+          diff = abs( y - yBar)) 
+
+bad_model_data <- model_data %>% 
+  filter( diff > 0.75) %>% 
+  arrange(desc(diff))
+  
+model_residuals <- ggplot(model_data, aes(x = y, y = yBar, col = diff)) +
+  geom_point(aes(x = y, y = yBar, color = diff)) +
+  geom_point(data = bad_model_data, color = "red", size = 2) +
+  scale_color_gradient(name = "|y - yBar|", limits = c(0, 1.5)) +
+  geom_abline(slope = 1, intercept = 0) +
+  labs(
+    x = "y",
+    y = "yBar",
+    title = "Linear model residuals"
+  ) +
+  my_theme
+
+model_residuals
+
+
+
+```
+
+## Conclusion 
+
+Model 3 happened to be the best fit for predicting Sale Price as it has least RMSE. The model considered the following variables- 
+
+1. *OverallQual* - Overall material and finish Quality
+
+2. *TotalBsmtSF* - Total square feet of Basement Area
+
+3. *Age* - Age of the residential property
+
+4. *Neighborhood* - Physical Location within Ames City Limits
+
+5. *GrLivArea* - Above grade Living area
+
+6. *GarageFinish* - Interior finish of the garage
+
+7. *Foundation* - Type of foundation
+
+According to the findings, **86.38 %** of the Sale Price values can be explained by the combination of these 7 features. 
+
+#### The following Key finding to be noted from this analysis - 
+
+1. Age of the property impacts the Sale price. The older the house gets, the more it loses it's financial value. 
+
+2. Quality variables make a big impact on Sale price. The better the quality of the facilities, the higher the price gets.
+
+3. Neighborhoods, Living Area, No. of Bathrooms happen to impact Sale Price and Number of Sales.
+
+4. Detached Single Family apartments are the most common among residential sale property, whereas other building types fall very low on sales. 
+
+5. Seasonal trend observed in number of Sales. Summers observe almost more than double number of sales as compared to winters. 
+
+6. The final model has an RMSE of 0.149. 
+
+## References
+
+1. https://nycdatascience.com/blog/student-works/machine-learning/machine-learning-project-ames-housing-dataset/
+
+2. https://www.timeanddate.com/calendar/seasons.html?n=76
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+
+
