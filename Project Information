@@ -1,0 +1,27 @@
+
+Abstract---------------------------------------------------------------------------------------------------------------------------------------------------------
+
+The main objective of this project was to predict Sale Price of individual residential property in Ames, Iowa. For the analysis and modeling purposes, 
+the data set was taken from Kaggle - Ames Housing Dataset. The objective here, was broken down into 8 smaller questions of interest, which were then 
+transformed to data science problems. This involved time series analysis on Sale Price. It also involved , Uni-variate, Bi-variate and Multi-variable 
+analysis on varied set of variables. Analysis was conducted on features, such as how neighborhood, lot size, no. of bedrooms etc. can affect the Sale 
+price of a property. Visualization was performed by creating distribution, comparison, and regression plots. Additionally, Feature engineering was 
+conducted to convert a few Ordinal variables to factors. Few variables were mutated to the data set as per requirement. After a detailed analysis, 
+three models were built to predict the sale price. On evaluating these models, the model with the best fit was selected. Analysis showed that Overall 
+Quality, Neighborhood and Living area happen to be the major factors in depicting the Sale Price of residential property in Ames, Lowa. The final model 
+has an RMSE of 0.149. New insights gained throughtout the project mentioned in the end of the report.
+
+Problem Identification---------------------------------------------------------------------------------------------------------------------------------------------
+
+    Problem 1 - Analyze if age of the House has an impact on sale price across different types of foundation.
+    Problem 2 - Analyze whether Basement/ Garage has any effect on sale price.
+    Problem 3 - How has the Average Sale Price changed from year 2006 to 2010 across different neighborhoods?
+    Problem 4 - Are quality/ condition features affecting sale price?
+    Problem 5 - Does the sale price fluctuate across seasons of the year?
+    Problem 6 - Analyze if Lot size, or various other area measurements make an impact on sale price.
+    Problem 7 - Analyze other key features to find what best predicts the sale price.
+    Problem 8 - How are Number of Sales distributed among neighborhoods/ Building type across time?
+    Problem 9 - Develop models to predict Sale Price based on the analysis performed in previous steps.
+    Problem 10 - Evaluate the models created and select the fit that best predicts the sales price.
+
+
